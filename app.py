@@ -4,7 +4,7 @@ from flask import Flask, render_template, request, flash, redirect, session, g
 from flask_debugtoolbar import DebugToolbarExtension
 from sqlalchemy.exc import IntegrityError
 
-from forms import UserAddForm, LoginForm, MessageForm
+from forms import UserAddForm, LoginForm, MessageForm, EditUserForm
 from models import db, connect_db, User, Message
 
 CURR_USER_KEY = "curr_user"
@@ -24,7 +24,6 @@ app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "it's a secret")
 toolbar = DebugToolbarExtension(app)
 
 connect_db(app)
-
 
 ##############################################################################
 # User signup/login/logout
@@ -210,11 +209,41 @@ def stop_following(follow_id):
     return redirect(f"/users/{g.user.id}/following")
 
 
-@app.route("/users/profile", methods=["GET", "POST"])
-def profile():
+@app.route("/users/<int:user_id>/edit", methods=["GET", "POST"])
+def profile(user_id):
     """Update profile for current user."""
 
-    # IMPLEMENT THIS
+    user = User.query.get_or_404(user_id)
+    form = EditUserForm(obj=user)
+
+    if not g.user:
+        flash("Access unauthorized.", "danger")
+        return redirect("/")
+
+    if form.validate_on_submit():
+        user.username = form.username.data
+        user.email = form.email.data
+        user.image_url = form.image_url
+        user.header_image_url = form.header_image_url.data
+        user.bio = form.bio.data
+        password = form.password.data
+
+        User.authenticate(form.username.data, form.password.data)
+
+        if user:
+            try:
+                db.session.commit()
+                return redirect("/users/<int:user_id>")
+            except SQLAlchemyError as e:
+                print(str(e))
+                db.session.rollback()
+                raise
+                return redirect("/users/<int:user_id>")
+        else:
+            flash("Incorrect Username/Password.", "danger")
+            return redirect("/")
+
+    return render_template("/users/edit.html", form=form, user=user)
 
 
 @app.route("/users/delete", methods=["POST"])
