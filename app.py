@@ -228,9 +228,9 @@ def profile(user_id):
         user.bio = form.bio.data
         password = form.password.data
 
-        User.authenticate(form.username.data, form.password.data)
+        user_auth = User.authenticate(form.username.data, form.password.data)
 
-        if user:
+        if user_auth:
             try:
                 db.session.commit()
                 return redirect("/users/<int:user_id>")
@@ -311,6 +311,10 @@ def messages_destroy(message_id):
 
     return redirect(f"/users/{g.user.id}")
 
+@app.route("/messages/<int:message_id>/likes", methods=["POST"])
+def messages_update_likes():
+    #Filter by count of likes by id????
+
 
 ##############################################################################
 # Homepage and error pages
@@ -325,9 +329,21 @@ def homepage():
     """
 
     if g.user:
-        messages = Message.query.order_by(Message.timestamp.desc()).limit(100).all()
+        # messages = Message.query.order_by(Message.timestamp.desc()).limit(100).all()
 
-        return render_template("home.html", messages=messages)
+        all_following_objects = g.user.following
+        following = []
+        for user_object in all_following_objects:
+            following.append(user_object.id)
+            # print(following)
+        following.append(g.user.id)
+        messages = (
+            Message.query.order_by(Message.timestamp.desc())
+            .filter(Message.user_id.in_(following))
+            .limit(100)
+            .all()
+        )
+        return render_template("home.html", messages=messages, following=following)
 
     else:
         return render_template("home-anon.html")
