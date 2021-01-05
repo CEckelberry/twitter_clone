@@ -323,12 +323,27 @@ def messages_update_likes(message_id):
     user = User.query.get(g.user.id)
 
     message = Message.query.get(message_id)
-
+    print(user.likes)
     current_like = Likes(user_id=user.id, message_id=message.id)
-
+    print(current_like.message_id)
+    # setup a likes array for all likes for current user
+    all_likes = []
+    # check if current user is trying to like their own message/warble
     if message.user_id != g.user.id:
-        db.session.add(current_like)
-        db.session.commit()
+        # for loop to get all message ID's into an array
+        for warble in user.likes:
+            all_likes.append(warble.id)
+            # print(all_likes)
+        # Check if current attempted like has already been liked by the logged in user, or add the like to the message
+        if current_like.message_id in all_likes:
+            curr_like = Likes.query.filter_by(
+                user_id=user.id, message_id=message.id
+            ).first()
+            db.session.delete(curr_like)
+            db.session.commit()
+        else:
+            db.session.add(current_like)
+            db.session.commit()
     return redirect("/")
 
 
@@ -345,13 +360,19 @@ def homepage():
     """
 
     if g.user:
-        # messages = Message.query.order_by(Message.timestamp.desc()).limit(100).all()
+
+        # query for all like objects available
+        all_likes = Likes.query.filter_by(user_id=g.user.id).all()
+        likes = []
+        # for each like object, we pull out the message id and append it to the likes array
+        for like in all_likes:
+            likes.append(like.message_id)
 
         all_following_objects = g.user.following
         following = []
         for user_object in all_following_objects:
             following.append(user_object.id)
-            # print(following)
+
         following.append(g.user.id)
         messages = (
             Message.query.order_by(Message.timestamp.desc())
@@ -359,7 +380,9 @@ def homepage():
             .limit(100)
             .all()
         )
-        return render_template("home.html", messages=messages, following=following)
+        return render_template(
+            "home.html", messages=messages, following=following, likes=likes
+        )
 
     else:
         return render_template("home-anon.html")
