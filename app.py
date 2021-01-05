@@ -2,10 +2,10 @@ import os
 
 from flask import Flask, render_template, request, flash, redirect, session, g
 from flask_debugtoolbar import DebugToolbarExtension
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 from forms import UserAddForm, LoginForm, MessageForm, EditUserForm
-from models import db, connect_db, User, Message
+from models import db, connect_db, User, Message, Likes
 
 CURR_USER_KEY = "curr_user"
 
@@ -152,7 +152,12 @@ def users_show(user_id):
         .limit(100)
         .all()
     )
-    return render_template("users/show.html", user=user, messages=messages)
+
+    likes = Likes.query.filter_by(user_id=user_id).count()
+
+    print(likes)
+
+    return render_template("users/show.html", user=user, messages=messages, likes=likes)
 
 
 @app.route("/users/<int:user_id>/following")
@@ -223,22 +228,22 @@ def profile(user_id):
     if form.validate_on_submit():
         user.username = form.username.data
         user.email = form.email.data
-        user.image_url = form.image_url
+        user.image_url = form.image_url.data
         user.header_image_url = form.header_image_url.data
         user.bio = form.bio.data
-        password = form.password.data
+        password = g.user.password
 
         user_auth = User.authenticate(form.username.data, form.password.data)
 
         if user_auth:
             try:
                 db.session.commit()
-                return redirect("/users/<int:user_id>")
+                return redirect(f"/users/{g.user.id}")
             except SQLAlchemyError as e:
                 print(str(e))
                 db.session.rollback()
                 raise
-                return redirect("/users/<int:user_id>")
+                return redirect(f"/users/{g.user.id}")
         else:
             flash("Incorrect Username/Password.", "danger")
             return redirect("/")
@@ -311,9 +316,20 @@ def messages_destroy(message_id):
 
     return redirect(f"/users/{g.user.id}")
 
-@app.route("/messages/<int:message_id>/likes", methods=["POST"])
-def messages_update_likes():
-    #Filter by count of likes by id????
+
+@app.route("/users/add_like/<int:message_id>", methods=["POST"])
+def messages_update_likes(message_id):
+    """ Add like to message/user as long as it isn't the logged in users message"""
+    user = User.query.get(g.user.id)
+
+    message = Message.query.get(message_id)
+
+    current_like = Likes(user_id=user.id, message_id=message.id)
+
+    if message.user_id != g.user.id:
+        db.session.add(current_like)
+        db.session.commit()
+    return redirect("/")
 
 
 ##############################################################################
