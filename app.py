@@ -231,6 +231,7 @@ def profile(user_id):
         user.image_url = form.image_url.data
         user.header_image_url = form.header_image_url.data
         user.bio = form.bio.data
+        user.location = form.location.data
         password = g.user.password
 
         user_auth = User.authenticate(form.username.data, form.password.data)

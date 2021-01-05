@@ -27,6 +27,7 @@ class EditUserForm(FlaskForm):
     image_url = StringField("(Optional) Image URL")
     bio = TextAreaField("Bio")
     header_image_url = StringField("(Optional) Image URL")
+    location = StringField("(Optional) Location")
 
 
 class LoginForm(FlaskForm):
